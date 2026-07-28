@@ -1,0 +1,63 @@
+name: Renovate
+
+# Corre Renovate sobre los repos que TIENEN un renovate.json propio.
+# Los que no lo tienen se ignoran: sumar un repo es agregarle ese archivo,
+# no tocar este workflow.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # lunes 06:00 UTC (03:00 en Buenos Aires)
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: "Nivel de log (debug para diagnosticar)"
+        required: false
+        default: "info"
+        type: choice
+        options: [info, debug]
+      dryRun:
+        description: "Simular sin abrir PRs"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    name: Escanear dependencias
+    # ubuntu-latest a proposito y NUNCA self-hosted: el runner self-hosted de
+    # ContadurIA es la maquina de PRODUCCION. Renovate no tiene nada que hacer
+    # ahi, y este repo es publico, asi que los minutos son gratis.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Clavada por SHA y no por tag: un tag se puede repuntar a otro commit,
+      # y esta es la action que recibe el PAT. Renovate se actualiza a si misma
+      # con un PR cuando salga una version nueva.
+      - name: Renovate
+        uses: renovatebot/github-action@1a96852b0384df1837619d04c60b2d10d1f9ff08 # v46.1.21
+        with:
+          token: ${{ secrets.RENOVATE_TOKEN }}
+        env:
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+          RENOVATE_DRY_RUN: ${{ inputs.dryRun && 'full' || '' }}
+
+          # Descubre los repos del usuario, pero solo actua sobre los que ya
+          # tienen renovate.json. Sin onboarding automatico: nada de PRs
+          # sorpresa en repos que no pediste.
+          RENOVATE_AUTODISCOVER: "true"
+          RENOVATE_ONBOARDING: "false"
+          RENOVATE_REQUIRE_CONFIG: "required"
+
+          # Necesario para que pueda regenerar lockfiles (pip-compile,
+          # package-lock.json): instala la herramienta que corresponda en vez
+          # de asumir que ya esta en la imagen.
+          RENOVATE_BINARY_SOURCE: "install"
+
+          RENOVATE_PLATFORM: "github"
+          RENOVATE_GIT_AUTHOR: "Renovate Bot <bot@renovateapp.com>"

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Politica compartida de dependencias. Principio: actualizar una dependencia es una DECISION CONSCIENTE Y PLANEADA, nunca un efecto secundario.",
+
+  "extends": ["config:recommended"],
+
+  "timezone": "America/Argentina/Buenos_Aires",
+  "schedule": ["* 0-6 * * 1"],
+
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+
+  "automerge": false,
+  "rebaseWhen": "conflicted",
+
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependencias: tablero de actualizaciones pendientes",
+
+  "labels": ["type:chore"],
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+
+  "packageRules": [
+    {
+      "description": "Los majors nunca se agrupan: cada uno se lee y se decide solo.",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "addLabels": ["major"]
+    },
+    {
+      "description": "Patches y minors de herramientas de desarrollo, en un solo PR. No tocan produccion.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "herramientas de desarrollo"
+    },
+    {
+      "description": "Las dependencias de runtime van una por PR: si algo se rompe, el PR dice cual fue.",
+      "matchDepTypes": ["dependencies", "require"],
+      "groupName": null
+    }
+  ],
+
+  "vulnerabilityAlerts": {
+    "description": "Un parche de seguridad corre distinto: el cooldown baja a 1 dia. No a cero: un release malicioso tambien se disfraza de parche.",
+    "minimumReleaseAge": "1 day",
+    "labels": ["type:chore", "seguridad"],
+    "dependencyDashboardApproval": false,
+    "schedule": ["at any time"]
+  },
+
+  "osvVulnerabilityAlerts": true,
+
+  "pip-compile": {
+    "description": "Regenera el .txt desde el .in con hashes, en vez de editar el lockfile a mano.",
+    "enabled": true
+  },
+
+  "prBodyNotes": [
+    "---",
+    "Este PR lo abrio Renovate siguiendo la politica de `CPManuelBovati/renovate-config`.",
+    "**No se mergea solo.** Revisar el changelog del paquete antes de aprobar.",
+    "La version ya lleva al menos 3 dias publicada (1 dia si es un parche de seguridad)."
+  ]
+}
