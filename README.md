@@ -60,6 +60,26 @@ Hace falta un **PAT** guardado como secret `RENOVATE_TOKEN` en este repo:
 
 Un token clásico con scope `repo` también sirve, pero da mucho más acceso del necesario. Preferir el fine-grained.
 
+## Si el repo usa pip-compile
+
+El preset **no** configura el manager `pip-compile`, a propósito: depende de cómo se llamen los archivos en cada repo, y encenderlo sin decirle cuáles mirar no hace nada.
+
+Si el repo tiene lockfiles generados con `pip-compile`, hay que declararlos en su propio `renovate.json`:
+
+```json
+{
+  "extends": ["github>CPManuelBovati/renovate-config"],
+  "pip-compile": {
+    "managerFilePatterns": ["/^requirements\\.txt$/"]
+  },
+  "pip_requirements": { "enabled": false }
+}
+```
+
+Las dos partes son necesarias. Sin la segunda, el manager `pip_requirements` —que sí trae patrones por defecto— le gana los archivos a `pip-compile` y **edita el lockfile generado sin recalcular los hashes**. El resultado es un lockfile inválido que el CI rechaza.
+
+Apagar `pip_requirements` solo es seguro si **todos** los `requirements*.txt` del repo son generados. Si hay alguno escrito a mano, hay que acotar los patrones en vez de apagarlo entero.
+
 ## Gotchas conocidos
 
 - **`RENOVATE_BINARY_SOURCE=install`** es necesario para regenerar lockfiles (`pip-compile`, `package-lock.json`). Sin eso, Renovate propone la versión nueva pero no puede actualizar el lockfile, y el PR queda a medias.

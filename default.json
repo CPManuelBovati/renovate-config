@@ -50,11 +50,6 @@
 
   "osvVulnerabilityAlerts": true,
 
-  "pip-compile": {
-    "description": "Regenera el .txt desde el .in con hashes, en vez de editar el lockfile a mano.",
-    "enabled": true
-  },
-
   "prBodyNotes": [
     "---",
     "Este PR lo abrio Renovate siguiendo la politica de `CPManuelBovati/renovate-config`.",
