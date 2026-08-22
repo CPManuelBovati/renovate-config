@@ -27,12 +27,36 @@ jobs:
       # extiende default.json, Renovate mantiene este SHA al dia solo.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # 24 y no 22: renovate 44.33.2 declara `engines: node ^24.11.0`. En 22 el
+      # validador CRASHEA con "RegExp.escape is not a function" — y lo peor es
+      # que igual devuelve exit 0, asi que el job daba verde sin haber validado
+      # nada. De ahi el paso 1 de abajo.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22 # renovate declara engines node ^22.13.0
+          node-version: 24
 
       # Version FIJA y que ya cumple el cooldown de 3 dias de la propia politica
       # de este repo: seria incoherente que el validador de la politica se
       # instalara con la ultima publicada hace unas horas.
+      #
+      # PASO 1 antes que el 2, y no es ceremonia: `renovate-config-validator`
+      # devuelve 0 cuando crashea, asi que su exit code NO alcanza como senal.
+      # Lo unico que distingue "la config es valida" de "el validador no
+      # funciono" es darle algo que TIENE que rechazar. Mismo razonamiento que
+      # `semgrep --test` y las fixtures de jscpd en ContadurIA.
+      - name: El validador rechaza una config invalida
+        run: |
+          set -uo pipefail
+          echo '{"estaOpcionNoExiste": true, "minimumReleaseAge": 42}' > /tmp/invalida.json
+
+          if npx --yes renovate@44.33.2 renovate-config-validator --strict /tmp/invalida.json; then
+            echo "::error::El validador ACEPTO una config invalida."
+            echo "O esta crasheando en silencio (devuelve 0 igual), o no se instalo,"
+            echo "o cambio de interfaz. El paso siguiente habria dado verde sin validar nada."
+            exit 1
+          fi
+
+          echo "OK: el validador rechaza lo que tiene que rechazar."
+
       - name: Validar default.json
         run: npx --yes renovate@44.33.2 renovate-config-validator --strict default.json
