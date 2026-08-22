@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Politica compartida de dependencias. Principio: actualizar una dependencia es una DECISION CONSCIENTE Y PLANEADA, nunca un efecto secundario.",
 
-  "extends": ["config:recommended"],
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
 
   "timezone": "America/Argentina/Buenos_Aires",
   "schedule": ["* 0-6 * * 1"],
@@ -21,6 +21,11 @@
   "prHourlyLimit": 2,
 
   "packageRules": [
+    {
+      "description": "Las GitHub Actions se pinean por SHA (helpers:pinGitHubActionDigests, arriba). Un tag de Git es un puntero MUTABLE: `uses: actions/checkout@v7` no pide la version 7, pide lo que sea que ese tag apunte en el momento de correr. El dueno del repo puede moverlo, y asi funciono el compromiso de tj-actions/changed-files: se repuntearon los tags existentes a un commit que volcaba los secretos del runner a los logs, y miles de repos que decian @v35 lo ejecutaron sin cambiar una linea. Los pineados por SHA no se enteraron. Esta regla existe para que ese pineo no signifique abandono: Renovate sigue proponiendo el digest nuevo manteniendo el comentario con la version.",
+      "matchDepTypes": ["action"],
+      "addLabels": ["actions"]
+    },
     {
       "description": "Los majors nunca se agrupan: cada uno se lee y se decide solo.",
       "matchUpdateTypes": ["major"],

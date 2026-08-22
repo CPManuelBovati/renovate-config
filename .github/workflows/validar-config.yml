@@ -1,0 +1,38 @@
+name: Validar config
+
+# Este repo PUBLICA una politica que otros repos extienden. Hasta ahora nada
+# verificaba que Renovate la acepte, y ese hueco tiene un modo de falla feo: una
+# config invalida no rompe este repo, rompe a TODOS los que hacen
+# `extends: github>CPManuelBovati/renovate-config` — y lo hace en silencio,
+# porque Renovate falla del otro lado, en un run programado que nadie mira los
+# lunes a las 3 de la manana. El sintoma es "hace semanas que no llegan PRs".
+#
+# Corre en cada push y PR: el archivo es chico y el validador tarda segundos.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    name: Renovate acepta default.json
+    runs-on: ubuntu-latest
+    steps:
+      # Por SHA y no por tag, igual que la action de renovate.yml y por el mismo
+      # motivo: un tag es un puntero mutable. Con el preset de digests que ahora
+      # extiende default.json, Renovate mantiene este SHA al dia solo.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22 # renovate declara engines node ^22.13.0
+
+      # Version FIJA y que ya cumple el cooldown de 3 dias de la propia politica
+      # de este repo: seria incoherente que el validador de la politica se
+      # instalara con la ultima publicada hace unas horas.
+      - name: Validar default.json
+        run: npx --yes renovate@44.33.2 renovate-config-validator --strict default.json

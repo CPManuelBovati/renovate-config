@@ -25,6 +25,24 @@ Ese es el problema que este repo resuelve, y tiene dos mitades:
 | Dev tooling | Agrupado | No toca producción, no merece ruido. |
 | Alertas de seguridad | Cooldown de **1 día**, fuera de horario | Un parche urgente corre distinto. No a cero: un release malicioso también se disfraza de parche. |
 | Horario | Lunes de madrugada | Los PRs esperan a la semana, no interrumpen. |
+| GitHub Actions | Pineadas por **SHA** | Un tag es un puntero mutable, y el cooldown no lo cubre. Ver abajo. |
+
+## Por qué las Actions se pinean por SHA
+
+`uses: actions/checkout@v7` no pide "la versión 7". Pide **lo que sea que el tag `v7` apunte en el momento de correr el job** — y un tag de Git lo puede mover el dueño del repo cuando quiera, sin cambiar el nombre. Traducido: *descargá código de un tercero, elegido por ese tercero en ese instante, y ejecutalo en un runner que tiene mis secretos en el entorno*.
+
+Así funcionó el compromiso de `tj-actions/changed-files`: se repuntearon los tags existentes a un commit que volcaba los secretos del runner a los logs. Miles de repos que decían `@v35` lo ejecutaron sin haber cambiado una línea. Los que estaban pineados por SHA no se enteraron.
+
+**Y acá está lo que no es obvio: el cooldown de 3 días no protege de esto.** Para las Actions el datasource es `github-tags`, que mira la fecha del **commit**, no la del push. Un tag repunteado a un commit viejo pasa el chequeo de edad sin problema. El pinning por digest es lo único que cierra ese vector.
+
+Lo hace `helpers:pinGitHubActionDigests`, y el punto de tenerlo acá —en vez de pinear a mano en cada repo— es que pinear **no signifique abandonar**: Renovate propone el digest nuevo manteniendo el comentario con la versión, así que las actions siguen actualizándose como cualquier otra dependencia.
+
+```yaml
+- - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
++ - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+```
+
+Para que esos PRs existan, el PAT necesita `Workflows: Read and write` (ver *Setup inicial*). Sin ese permiso el pineo es real pero queda congelado, que es peor que no pinear.
 
 ## Sumar un repo
 
@@ -85,3 +103,4 @@ Apagar `pip_requirements` solo es seguro si **todos** los `requirements*.txt` de
 - **`RENOVATE_BINARY_SOURCE=install`** es necesario para regenerar lockfiles (`pip-compile`, `package-lock.json`). Sin eso, Renovate propone la versión nueva pero no puede actualizar el lockfile, y el PR queda a medias.
 - **Si el repo destino tiene un gate de PRs que exige un issue vinculado**, los PRs de Renovate lo van a fallar: no referencian ningún issue porque el PR *es* el registro. Hay que exceptuar a los bots por autor en ese workflow.
 - **Si mergear a `main` deploya**, un PR de Renovate mergeado deploya. Obvio, pero conviene tenerlo presente antes de aprobar tres seguidos.
+- **La config de este repo se valida en CI** (`.github/workflows/validar-config.yml`). No es ceremonia: un `default.json` inválido no rompe este repo, rompe a **todos** los que lo extienden — y en silencio, porque Renovate falla del otro lado, en un run programado de un lunes a las 3 de la mañana. El síntoma es "hace semanas que no llegan PRs".
