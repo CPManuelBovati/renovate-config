@@ -1,0 +1,99 @@
+name: Validar config
+
+# Este repo PUBLICA una politica que otros repos extienden. Hasta ahora nada
+# verificaba que Renovate la acepte, y ese hueco tiene un modo de falla feo: una
+# config invalida no rompe este repo, rompe a TODOS los que hacen
+# `extends: github>CPManuelBovati/renovate-config` — y lo hace en silencio,
+# porque Renovate falla del otro lado, en un run programado que nadie mira los
+# lunes a las 3 de la manana. El sintoma es "hace semanas que no llegan PRs".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Version FIJA que ya cumple el cooldown de 3 dias de la propia politica de
+  # este repo: seria incoherente que el validador de la politica se instalara
+  # con la ultima publicada hace unas horas.
+  RENOVATE_VERSION: "44.33.2"
+
+jobs:
+  validar:
+    name: Renovate acepta default.json
+    runs-on: ubuntu-latest
+    steps:
+      # Por SHA y no por tag, igual que la action de renovate.yml y por el mismo
+      # motivo: un tag es un puntero mutable. Con el preset de digests que ahora
+      # extiende default.json, Renovate mantiene este SHA al dia solo.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # 24 y no 22: renovate 44.33.2 declara `engines: node ^24.11.0`. En 22 el
+      # validador CRASHEA con "RegExp.escape is not a function" y AUN ASI
+      # devuelve exit 0 — el job daba verde sin haber validado una linea.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      # ---------------------------------------------------------------------
+      # PASO 1: el validador rechaza lo que tiene que rechazar.
+      #
+      # Va primero por lo mismo que `semgrep --test` y las fixtures de jscpd en
+      # ContadurIA, pero aca la necesidad es mas concreta: el exit code de esta
+      # herramienta NO es una senal confiable por si solo. Ya dio dos falsos
+      # verdes distintos en este mismo PR — uno crasheando con exit 0, y otro
+      # fallando por un flag inexistente (o sea, "fallo" sin haber mirado el
+      # archivo). Por eso las dos mitades se afirman por SALIDA, no por codigo:
+      # lo invalido no puede decir "validated successfully", y lo valido si.
+      # ---------------------------------------------------------------------
+      - name: El validador rechaza una config invalida
+        run: |
+          set -uo pipefail
+          echo '{"estaOpcionNoExiste": true, "minimumReleaseAge": 42}' > /tmp/invalida.json
+
+          salida="$(npx --yes --package "renovate@${RENOVATE_VERSION}" -- \
+            renovate-config-validator --strict --no-global /tmp/invalida.json 2>&1)" && codigo=0 || codigo=$?
+          echo "$salida"
+
+          if [ "$codigo" -eq 0 ] || grep -q "Config validated successfully" <<< "$salida"; then
+            echo "::error::El validador ACEPTO una config invalida (exit ${codigo})."
+            echo "O crashea en silencio, o no se instalo, o cambio de interfaz."
+            echo "El paso siguiente habria dado verde sin validar nada."
+            exit 1
+          fi
+
+          echo "OK: el validador rechaza lo que tiene que rechazar."
+
+      # ---------------------------------------------------------------------
+      # PASO 2: la config real es valida.
+      #
+      # `--no-global` es obligatorio: sin el, el validador trata un archivo
+      # pasado por argumento como configuracion GLOBAL de self-hosted, y este
+      # default.json es un preset de nivel repo. Sin ese flag las opciones
+      # validas de repo se reportarian como desconocidas.
+      # ---------------------------------------------------------------------
+      - name: Validar default.json
+        run: |
+          set -uo pipefail
+
+          salida="$(npx --yes --package "renovate@${RENOVATE_VERSION}" -- \
+            renovate-config-validator --strict --no-global default.json 2>&1)" && codigo=0 || codigo=$?
+          echo "$salida"
+
+          if [ "$codigo" -ne 0 ]; then
+            echo "::error::Renovate rechaza default.json. Arriba esta el detalle."
+            exit 1
+          fi
+
+          # La confirmacion explicita, y no solo el exit 0: un crash del
+          # validador tambien devuelve 0.
+          if ! grep -q "Config validated successfully" <<< "$salida"; then
+            echo "::error::El validador salio 0 pero nunca dijo que la config sea valida."
+            echo "Probablemente crasheo o no llego a evaluar el archivo."
+            exit 1
+          fi
+
+          echo "OK: Renovate acepta default.json."
