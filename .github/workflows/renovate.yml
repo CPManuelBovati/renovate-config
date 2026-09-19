@@ -6,7 +6,14 @@ name: Renovate
 
 on:
   schedule:
-    - cron: "0 6 * * 1" # lunes 06:00 UTC (03:00 en Buenos Aires)
+    # TODOS los dias, no solo los lunes. La cadencia de las actualizaciones
+    # normales NO la fija este cron sino el `schedule` del preset
+    # (default.json: lunes de 0 a 6 en Buenos Aires): las corridas de martes
+    # a domingo caen fuera de esa ventana y no abren nada. Lo unico que
+    # cambia son las alertas de seguridad, que tienen `schedule: at any time`
+    # y con un cron semanal igual esperaban hasta el lunes siguiente: hasta
+    # 6 dias de demora para un parche que el preset quiere en 1.
+    - cron: "0 6 * * *" # 06:00 UTC (03:00 en Buenos Aires)
   workflow_dispatch:
     inputs:
       logLevel:
