@@ -31,6 +31,9 @@ jobs:
       # extiende default.json, Renovate mantiene este SHA al dia solo.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Verificar keepalive sin llamadas de red
+        run: python3 -B -m unittest discover -s tests -v
+
       # 24 y no 22: renovate 44.33.2 declara `engines: node ^24.11.0`. En 22 el
       # validador CRASHEA con "RegExp.escape is not a function" y AUN ASI
       # devuelve exit 0 — el job daba verde sin haber validado una linea.

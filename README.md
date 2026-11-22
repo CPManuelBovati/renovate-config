@@ -61,11 +61,19 @@ Para sacar un repo, borrar el archivo.
 
 ## Cómo corre
 
-Un workflow con cron en este repo, los lunes. Es **self-hosted en GitHub Actions**, no la app de Mend: ningún tercero tiene acceso de escritura a los repos privados. Como este repo es público, los minutos de Actions son gratis aunque escanee repos privados.
+Un workflow con cron en este repo corre todos los días a las 06:00 UTC. Las actualizaciones normales respetan la ventana de los lunes del preset; las alertas de seguridad pueden procesarse cualquier día. Es **self-hosted en GitHub Actions**, no la app de Mend: ningún tercero tiene acceso de escritura a los repos privados. Como este repo es público, los minutos de Actions son gratis aunque escanee repos privados.
 
 Corre en `ubuntu-latest` **a propósito**. Nunca en un runner self-hosted — en al menos un repo, ese runner es la máquina de producción.
 
 Se puede disparar a mano desde la pestaña Actions, con `logLevel: debug` y `dryRun` para probar sin abrir PRs.
+
+### Evitar la desactivación por inactividad
+
+GitHub puede desactivar los workflows programados de repos públicos tras 60 días sin actividad, aunque Renovate trabaje en otros repositorios. El job independiente `keepalive` renueva la habilitación de `renovate.yml` mediante la API en cada ejecución programada, incluso si el job de Renovate falla. Usa únicamente el `GITHUB_TOKEN` temporal con `actions: write`: no reutiliza el PAT, no crea commits y no incorpora actions de terceros.
+
+El keepalive se omite en ejecuciones manuales, incluido `dryRun`. Es una medida preventiva, no una garantía oficial de GitHub: si el workflow ya quedó desactivado, no puede reactivarse a sí mismo. En ese caso, usar **Actions → Renovate → Enable workflow** y revisar los fallos del job `keepalive`.
+
+Las pruebas offline se ejecutan en CI y localmente con `python3 -B -m unittest discover -s tests -v`; simulan la API sin usar credenciales ni realizar llamadas de red.
 
 ## Setup inicial (una sola vez)
 
