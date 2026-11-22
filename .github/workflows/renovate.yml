@@ -33,6 +33,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  keepalive:
+    name: Mantener activo el workflow
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: write
+    steps:
+      # Job independiente: un fallo de Renovate no impide renovar el workflow.
+      # No usa el PAT ni necesita checkout o permisos sobre el contenido.
+      - name: Renovar la habilitación de Renovate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api --method PUT "repos/${GH_REPO}/actions/workflows/renovate.yml/enable"
+
   renovate:
     name: Escanear dependencias
     # ubuntu-latest a proposito y NUNCA self-hosted: el runner self-hosted de
